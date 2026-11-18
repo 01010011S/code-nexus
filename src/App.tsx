@@ -4,7 +4,7 @@ import { BrowserRouter, Link, Navigate, Route, Routes, useNavigate, useParams } 
 import {
   ArrowRight, Bell, Bookmark, BriefcaseBusiness, CalendarDays, Check,
   CircleUserRound, Clock3, Code2, LayoutDashboard,
-  Menu, MessageCircle, Plus, Search, Send, Settings, Sparkles, Trophy,
+  Menu, Plus, Search, Send, Sparkles, Trophy,
   Users, X,
 } from 'lucide-react'
 import './App.css'
@@ -116,13 +116,12 @@ function App() {
           <Route path="/hackathon/:id" element={<HackathonDetails saved={saved} toggleSaved={toggleSaved} notify={notify} />} />
           <Route path="/teammates" element={<Teammates notify={notify} />} />
           <Route path="/teams" element={<Teams />} />
+          <Route path="/my-hackathons" element={<MyHackathons saved={saved} />} />
           <Route path="/chat" element={<Chat />} />
           <Route path="/workspace" element={<Workspace notify={notify} />} />
-          <Route path="/dashboard" element={<Protected session={session}><Dashboard saved={saved} /></Protected>} />
-          <Route path="/profile" element={<Protected session={session}><Profile session={session} setSession={setSession} /></Protected>} />
+          <Route path="/dashboard" element={<Dashboard saved={saved} />} />
+          <Route path="/profile" element={<Profile session={session} setSession={setSession} />} />
           <Route path="/notifications" element={<Notifications notifications={notifications} setNotifications={setNotifications} />} />
-          <Route path="/organizer" element={<Organizer />} />
-          <Route path="/admin" element={<Admin />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
@@ -131,10 +130,49 @@ function App() {
   )
 }
 
+function MyHackathons({ saved }: { saved: number[] }) {
+  const savedEvents = hackathons.filter(h => saved.includes(h.id))
+  return (
+    <div className="page-shell">
+      <div className="page-heading">
+        <div><span className="eyebrow">My journey</span><h1>My Hackathons</h1></div>
+        <Link className="button primary" to="/explore">Discover more <ArrowRight size={16} /></Link>
+      </div>
+      <div className="stat-grid">
+        <div><span><Bookmark /></span><b>{savedEvents.length}</b><small>Saved events</small></div>
+        <div><span><CalendarDays /></span><b>{savedEvents.filter(h => h.status === 'Closing soon').length}</b><small>Closing soon</small></div>
+        <div><span><Users /></span><b>1</b><small>Active team</small></div>
+        <div><span><Trophy /></span><b>33%</b><small>Submission prep</small></div>
+      </div>
+      {savedEvents.length ? (
+        <div className="card-grid">
+          {savedEvents.map(h => {
+            const status = read(`codex_registration_${h.id}`, 'Not Registered')
+            return (
+              <article className="hack-card my-hackathon-card" key={h.id}>
+                <div className={`hack-poster poster-${h.poster}`}><span className="poster-category">{h.category}</span><div className="poster-art"><span>&lt;/&gt;</span><i /></div></div>
+                <div className="hack-card-body">
+                  <div className="card-meta"><span className={h.status === 'Closing soon' ? 'status closing' : 'status'}>{h.status}</span><span>{h.mode}</span></div>
+                  <h3><Link to={`/hackathon/${h.id}`}>{h.name}</Link></h3>
+                  <p className="organizer">by {h.organizer}</p>
+                  <div className="registration-summary"><span>Registration</span><b>{status}</b></div>
+                  <div className="hack-footer"><Link className="button secondary small" to={`/hackathon/${h.id}`}>Manage event</Link><Link className="button primary small" to="/workspace">Workspace</Link></div>
+                </div>
+              </article>
+            )
+          })}
+        </div>
+      ) : (
+        <div className="empty-state"><Bookmark size={32} /><h3>No saved hackathons yet</h3><p>Explore events and save the ones you want to join.</p><Link className="button primary" to="/explore">Explore hackathons</Link></div>
+      )}
+    </div>
+  )
+}
+
 function Dashboard({ saved }: { saved: number[] }) {
   const [tasks] = useState(() => read<any[]>('codex_tasks', [
     { id: 1, title: 'Create wireframes', status: 'READY' },
-    { id: 2, title: 'Build API mock', status: 'IN PROGRESS' },
+    { id: 2, title: 'Build prototype UI', status: 'IN PROGRESS' },
     { id: 3, title: 'Prepare pitch', status: 'TO DO' },
   ]))
   const ready = tasks.filter(t => t.status === 'READY').length
@@ -212,6 +250,7 @@ function Navbar({ session, notifications, setSession }: any) {
         <Link to="/explore" onClick={() => setOpen(false)}>Explore</Link>
         <Link to="/teammates" onClick={() => setOpen(false)}>Find Teammates</Link>
         <Link to="/teams" onClick={() => setOpen(false)}>Teams</Link>
+        <Link to="/my-hackathons" onClick={() => setOpen(false)}>My Hackathons</Link>
         <Link to="/workspace" onClick={() => setOpen(false)}>Workspace</Link>
       </nav>
       <div className="nav-actions">
@@ -233,14 +272,10 @@ function Footer() {
   return (
     <footer className="footer">
       <div className="footer-brand"><span className="brand-mark"><Code2 size={20} /></span><div><b>CODE NEXUS</b><small>Discover. Connect. Build.</small></div></div>
-      <div className="footer-links"><Link to="/explore">Hackathons</Link><Link to="/teammates">Community</Link><Link to="/organizer">For organizers</Link><Link to="/admin">Demo admin</Link></div>
+      <div className="footer-links"><Link to="/explore">Hackathons</Link><Link to="/teammates">Community</Link><Link to="/teams">Teams</Link><Link to="/workspace">Workspace</Link></div>
       <p>© 2026 CodeX · Frontend demo</p>
     </footer>
   )
-}
-
-function Protected({ session, children }: any) {
-  return session ? children : <Navigate to="/login" replace />
 }
 
 function Home({ saved, toggleSaved }: any) {
@@ -516,32 +551,6 @@ function Notifications({ notifications, setNotifications }: any) {
     <div className="page-shell notifications-page">
       <div className="page-heading"><div><span className="eyebrow">Activity center</span><h1>Notifications</h1></div><button className="button secondary" onClick={markRead}>Mark all as read</button></div>
       <div className="notification-list">{notifications.map((n: any) => <div className={n.read ? 'notification-row' : 'notification-row unread'} key={n.id}><div className="notification-icon"><Bell size={17} /></div><div><b>{n.text}</b><span>{n.time}</span></div>{!n.read && <i />}</div>)}</div>
-    </div>
-  )
-}
-
-function Organizer() {
-  const [events, setEvents] = useState(() => read('codex_organizer_events', [{ id: 1, name: 'Student Innovation Sprint', status: 'Pending admin review' }]))
-  const [show, setShow] = useState(false)
-  const submit = (e: FormEvent<HTMLFormElement>) => { e.preventDefault(); const data = new FormData(e.currentTarget); setEvents(v => [...v, { id: Date.now(), name: String(data.get('name') || 'New demo event'), status: 'Pending admin review' }]); setShow(false) }
-  return (
-    <div className="page-shell">
-      <div className="page-heading"><div><span className="eyebrow">Organizer demo</span><h1>Organizer dashboard</h1></div><button className="button primary" onClick={() => setShow(true)}><Plus size={16} /> Add hackathon</button></div>
-      <div className="stat-grid"><div><span><CalendarDays /></span><b>{events.length}</b><small>Submitted events</small></div><div><span><Clock3 /></span><b>{events.filter(e => e.status.includes('Pending')).length}</b><small>Awaiting review</small></div><div><span><Check /></span><b>0</b><small>Approved</small></div></div>
-      <div className="dashboard-card"><div className="card-heading"><h2>My submissions</h2></div>{events.map(e => <div className="deadline-row" key={e.id}><div className="date-box poster-bb"><b>DEMO</b></div><div><b>{e.name}</b><span>{e.status}</span></div><button className="icon-button" title="Edit event"><Settings size={16} /></button></div>)}</div>
-      {show && <Modal title="Submit demo hackathon" onClose={() => setShow(false)}><form className="modal-form" onSubmit={submit}><label>Hackathon name<input name="name" required /></label><label>Description<textarea /></label><div className="form-grid"><label>Mode<select><option>Online</option><option>Offline</option><option>Hybrid</option></select></label><label>Registration deadline<input type="date" /></label></div><label>Official registration link<input placeholder="https://example.com/demo" /></label><button className="button primary" type="submit">Submit for review</button></form></Modal>}
-    </div>
-  )
-}
-
-function Admin() {
-  const [pending, setPending] = useState(() => read('codex_pending_admin', [{ id: 1, name: 'Student Innovation Sprint', organizer: 'Demo Organizer' }]))
-  const decide = (id: number, status: 'Approved' | 'Rejected') => { setPending(v => v.filter(x => x.id !== id)); save('codex_pending_admin', pending.filter(x => x.id !== id)); save(`codex_admin_${id}`, status) }
-  return (
-    <div className="page-shell">
-      <div className="page-heading"><div><span className="eyebrow">Demonstration access</span><h1>Admin dashboard</h1></div><span className="demo-label">Admin access is simulated</span></div>
-      <div className="stat-grid"><div><span><Users /></span><b>2,400</b><small>Demo users</small></div><div><span><CalendarDays /></span><b>{pending.length}</b><small>Pending approvals</small></div><div><span><MessageCircle /></span><b>3</b><small>Reported items</small></div><div><span><Sparkles /></span><b>Healthy</b><small>Mock sync status</small></div></div>
-      <div className="dashboard-layout"><section className="dashboard-card"><div className="card-heading"><h2>Event approvals</h2></div>{pending.length ? pending.map(p => <div className="approval-row" key={p.id}><div><b>{p.name}</b><span>by {p.organizer}</span></div><div><button className="button primary small" onClick={() => decide(p.id, 'Approved')}><Check size={15} /> Approve</button><button className="button ghost small" onClick={() => decide(p.id, 'Rejected')}>Reject</button></div></div>) : <div className="empty-inline">No pending submissions.</div>}</section><section className="dashboard-card"><div className="card-heading"><h2>System activity</h2></div><div className="activity-row"><i />Demo event source checked <span>8 min ago</span></div><div className="activity-row"><i />No synchronization errors <span>20 min ago</span></div><div className="activity-row"><i />Organizer submitted an event <span>1 hr ago</span></div></section></div>
     </div>
   )
 }
